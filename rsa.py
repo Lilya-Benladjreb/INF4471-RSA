@@ -1,64 +1,94 @@
 import random
+from math import gcd
 
-def exponentiaiton_rapide(base, exp, m):
-    result = 1
-    while(exp > 0):
-        if( (exp & 1) > 0 ):
-            result = (result * base) % m
-        exp >>= 1
-        base = (base * base) % m
+def generer_premier():
+    # Génère un nombre premier aléatoire
+    while True:
+        nombre = random.randint(1000, 10000)
+        if est_premier(nombre):
+            return nombre
 
-    return result
-
-
-def euclide(a, b):
-    r, u, v, r2, u2, v2 = a, 1, 0, b, 0, 1
-
-    while r2 != 0:
-        q = r // r2
-        r, u, v, r2, u2, v2 = (r2, u2, v2, r - q * r2, u - q * u2, v - q * v2)
-
-    return r, u, v
-
-
-def temoin_de_Miller(n, a):
-    if n < 3 or n % 2 == 0 or a <= 1:
-        raise ValueError("Les conditions d'entrée ne sont pas remplies.")
-
-    s, d = 0, n - 1
-    while d % 2 == 0:
-        s += 1
-        d //= 2
-
-    x = pow(a, d, n)
-
-    if x == 1 or x == n - 1:
+def est_premier(nombre):
+    # Vérifie si un nombre est premier
+    if nombre < 2:
         return False
-
-    for _ in range(s - 1):
-        x = (x * x) % n
-
-        if x == n - 1:
+    for i in range(2, int(nombre**0.5) + 1):
+        if nombre % i == 0:
             return False
-
     return True
 
+def generer_cle_rsa():
+    # Étape 1 : Générer deux grands nombres premiers, p et q
+    p = generer_premier()
+    q = generer_premier()
 
-def miller_rabin(n, k):
-    if n < 3 or n % 2 == 0 or k < 1:
-        raise ValueError("Les conditions d'entrée ne sont pas remplies.")
+    # Étape 2 : Calculer n = p * q
+    n = p * q
 
-    for _ in range(k):
-        a = random.randint(2, n - 1)
-        if temoin_de_Miller(n, a):
-            return False
+    # Étape 3 : Calculer phi(n) = (p-1) * (q-1)
+    phi_n = (p - 1) * (q - 1)
 
-    return True
+    # Étape 4 : Générer un nombre e tel que PGCD(e, phi(n)) = 1
+    e = random.randint(2, phi_n - 1)
+    while gcd(e, phi_n) != 1:
+        e = random.randint(2, phi_n - 1)
 
+    # Étape 5 : Calculer d, l'inverse modulaire de e mod phi(n)
+    d = mod_inverse(e, phi_n)
 
-if __name__ == "__main__":
-    result = exponentiaiton_rapide(4, 13, 497)
-    resultat_euclide = euclide(120,23)
-    resultat_test_miller = temoin_de_Miller(561,2)
-    resultat_miller_rabin = miller_rabin(563,5)
-    print(result, resultat_euclide, resultat_test_miller, "Le nombre {} est probablement premier : {}".format(563,resultat_miller_rabin))
+    # Clé publique : (e, n)
+    cle_publique = (e, n)
+    # Clé privée : (d, n)
+    cle_privee = (d, n)
+
+    return cle_publique, cle_privee, p, q
+
+def mod_inverse(a, m):
+    # Calculer l'inverse modulaire de a modulo m
+    g, x, _ = euclide_etendu(a, m)
+    if g != 1:
+        raise ValueError("L'inverse modulaire n'existe pas.")
+    else:
+        return x % m
+
+def euclide_etendu(a, b):
+    if a == 0:
+        return b, 0, 1
+    else:
+        g, x, y = euclide_etendu(b % a, a)
+        return g, y - (b // a) * x, x
+
+def chiffrement(message, cle_publique):
+    e, n = cle_publique
+    c = pow(message, e, n)
+    return c
+
+def dechiffrement(ciphertext, cle_privee):
+    d, n = cle_privee
+    m = pow(ciphertext, d, n)
+    return m
+
+# Génération des clés
+cle_publique, cle_privee, p, q = generer_cle_rsa()
+
+# Affichage des clés
+print("Clé publique :", cle_publique)
+print("Clé privée   :", cle_privee)
+print("p            :", p)
+print("q            :", q)
+
+# Validation
+message = random.randint(1, 1000)
+
+# Chiffrement
+ciphertext = chiffrement(message, cle_publique)
+
+# Déchiffrement
+decrypted_message = dechiffrement(ciphertext, cle_privee)
+
+# Vérification
+if message == decrypted_message:
+    print("Test réussi.")
+else:
+    print("Erreur dans le test.")
+
